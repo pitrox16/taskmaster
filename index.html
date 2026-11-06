@@ -1,9 +1,18 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TaskMaster · Gestor de tareas</title>
+  <meta name="theme-color" content="#080719" />
+  <title>TaskMaster · Organiza. Planifica. Cumple.</title>
+
+  <!-- Aplica el tema guardado antes de pintar (evita el parpadeo) -->
+  <script>
+    try {
+      var t = JSON.parse(localStorage.getItem('taskmaster.tema'));
+      if (t === 'claro') document.documentElement.classList.remove('dark');
+    } catch (e) { /* por defecto: oscuro */ }
+  </script>
 
   <!-- Tailwind CSS desde CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -12,216 +21,493 @@
   </script>
 
   <style>
+    /* ===== Tokens de color (claro / oscuro) ===== */
+    :root {
+      --bg: #f3f2fc;
+      --panel: #ffffff;
+      --panel-2: #f1f0fb;
+      --border: #e1dff4;
+      --text: #1b1a33;
+      --muted: #6a6985;
+      --accent: #6d5cf6;
+      --field: #f5f4fd;
+      --glow1: rgba(124, 92, 255, 0.12);
+      --glow2: rgba(192, 75, 255, 0.08);
+      --shadow: 0 12px 30px -14px rgba(76, 60, 170, 0.28);
+      --alta-t: #c81e3a;
+      --media-t: #a16207;
+      --baja-t: #1d62c9;
+      color-scheme: light;
+    }
+    html.dark {
+      --bg: #080719;
+      --panel: #100f28;
+      --panel-2: #181640;
+      --border: #26234f;
+      --text: #f1f0ff;
+      --muted: #9b99be;
+      --accent: #8b6dff;
+      --field: #15133a;
+      --glow1: rgba(124, 77, 255, 0.24);
+      --glow2: rgba(192, 75, 255, 0.12);
+      --shadow: 0 14px 40px -18px rgba(0, 0, 0, 0.85);
+      --alta-t: #ff8794;
+      --media-t: #ffcb4d;
+      --baja-t: #6db4ff;
+      color-scheme: dark;
+    }
+
+    body {
+      background:
+        radial-gradient(60rem 38rem at 0% 0%, var(--glow1), transparent 60%),
+        radial-gradient(50rem 38rem at 100% 100%, var(--glow2), transparent 60%),
+        var(--bg);
+      background-attachment: fixed;
+      color: var(--text);
+      transition: background-color .3s, color .3s;
+    }
+    .muted { color: var(--muted); }
+
+    /* ===== Componentes ===== */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+    .field {
+      width: 100%;
+      background: var(--field);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      color: var(--text);
+      font-size: 1rem;           /* 16px: evita el zoom automático en iPhone */
+      padding: .8rem 1rem;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field::placeholder { color: var(--muted); opacity: .85; }
+    .field:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(124, 92, 255, .22); }
+    select.field { appearance: none; -webkit-appearance: none; padding-right: 2.5rem; cursor: pointer; }
+    input[type="date"].field { min-height: 3.1rem; appearance: none; -webkit-appearance: none; }
+
+    .btn-grad {
+      background: linear-gradient(90deg, #5b6cff 0%, #a145ff 60%, #d33cff 100%);
+      color: #fff;
+      font-weight: 700;
+      border-radius: 1rem;
+      box-shadow: 0 12px 28px -12px rgba(160, 69, 255, .7);
+      transition: filter .15s, transform .1s;
+    }
+    .btn-grad:hover { filter: brightness(1.1); }
+    .btn-grad:active { transform: scale(.98); }
+    .btn-ghost {
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      font-weight: 600;
+      border-radius: 1rem;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-ghost:hover { border-color: var(--accent); }
+
+    .icon-btn {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      width: 3.5rem; height: 3.5rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 1.1rem;
+      color: var(--text);
+      box-shadow: var(--shadow);
+      transition: border-color .15s, color .15s, transform .1s;
+    }
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .icon-btn:active { transform: scale(.95); }
+
+    .logo-box {
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      width: 4rem; height: 4rem;
+      border-radius: 1.2rem;
+      background: linear-gradient(135deg, #5b6cff, #c13bff);
+      color: #fff;
+      box-shadow: 0 14px 30px -10px rgba(160, 69, 255, .75);
+    }
+    .ico-box {
+      display: flex; align-items: center; justify-content: center;
+      width: 3.25rem; height: 3.25rem; border-radius: 1rem;
+      border: 1px solid rgba(139, 109, 255, .45);
+      background: rgba(139, 109, 255, .14);
+      color: var(--accent);
+    }
+
+    /* Estadísticas */
+    .stat { padding: 1rem 1.1rem; border-radius: 1.4rem; background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow); }
+    .stat-label { display: flex; align-items: center; gap: .5rem; font-size: .8rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .stat-num { margin-top: .35rem; text-align: center; font-size: 2.4rem; line-height: 1; font-weight: 700; }
+
+    /* Pestañas de filtro */
+    .tab {
+      display: flex; flex: 1; align-items: center; justify-content: center; gap: .5rem;
+      padding: .8rem .5rem; border-radius: 1rem; font-weight: 600; font-size: .95rem;
+      color: var(--muted); transition: background .15s, color .15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.activa { background: linear-gradient(135deg, #5b5bff, #7a4dff); color: #fff; box-shadow: 0 10px 24px -12px rgba(110, 80, 255, .9); }
+
+    /* Calendario */
+    .cal-nav { display: flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: .8rem; color: var(--muted); transition: background .15s, color .15s; }
+    .cal-nav:hover { background: var(--panel-2); color: var(--text); }
+    .cal-dia {
+      position: relative; width: 100%; aspect-ratio: 1 / 1;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: .85rem; background: var(--panel-2);
+      font-size: .95rem; font-weight: 500; color: var(--text);
+      transition: background .15s, transform .1s;
+    }
+    .cal-dia:hover { background: var(--border); }
+    .cal-dia:active { transform: scale(.94); }
+    .cal-dia.fuera { opacity: .4; }
+    .cal-dia.hoy { box-shadow: inset 0 0 0 2px var(--accent); }
+    .cal-dia.sel { background: linear-gradient(135deg, #6b4bff, #a145ff); color: #fff; font-weight: 700; box-shadow: 0 10px 22px -10px rgba(140, 80, 255, .9); opacity: 1; }
+    .cal-punto { position: absolute; bottom: .28rem; left: 50%; width: .3rem; height: .3rem; margin-left: -.15rem; border-radius: 9999px; background: var(--accent); }
+    .cal-dia.sel .cal-punto { background: #fff; }
+
+    /* Casilla redonda */
+    .chk {
+      flex-shrink: 0; width: 1.9rem; height: 1.9rem; border-radius: 9999px;
+      border: 2px solid var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; transition: background .15s, border-color .15s, transform .1s;
+    }
+    .chk:hover { border-color: var(--accent); }
+    .chk:active { transform: scale(.9); }
+    .chk svg { opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; }
+    .chk.on { background: linear-gradient(135deg, #6b4bff, #a145ff); border-color: transparent; }
+    .chk.on svg { opacity: 1; transform: scale(1); }
+    .chk.mini { width: 1.6rem; height: 1.6rem; }
+
+    /* Tarea */
+    .tarea {
+      position: relative; display: flex; align-items: center; gap: .9rem;
+      padding: .95rem 1rem; border-radius: 1.25rem;
+      background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow);
+    }
+    .tarea.editor { align-items: stretch; }
+    .titulo-hecha { text-decoration: line-through; color: var(--muted); }
+
+    .pri { display: inline-flex; align-items: center; padding: .25rem .85rem; border-radius: 9999px; font-size: .85rem; font-weight: 600; }
+    .pri-alta  { background: rgba(255, 90, 110, .16);  color: var(--alta-t); }
+    .pri-media { background: rgba(255, 194, 51, .18);  color: var(--media-t); }
+    .pri-baja  { background: rgba(77, 163, 255, .18);  color: var(--baja-t); }
+
+    .fecha-badge { display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .65rem; border-radius: 9999px; font-size: .8rem; font-weight: 500; background: var(--panel-2); color: var(--muted); }
+    .fecha-badge.vencida { background: rgba(255, 90, 110, .16); color: var(--alta-t); }
+
+    .menu-flotante {
+      position: absolute; right: .75rem; top: calc(100% - .35rem); z-index: 30;
+      min-width: 10rem; padding: .4rem; border-radius: 1rem;
+      background: var(--panel); border: 1px solid var(--border);
+      box-shadow: 0 20px 40px -12px rgba(0, 0, 0, .55);
+    }
+    .menu-item { display: flex; width: 100%; align-items: center; gap: .6rem; padding: .65rem .8rem; border-radius: .7rem; font-size: .95rem; font-weight: 500; text-align: left; }
+    .menu-item:hover { background: var(--panel-2); }
+    .menu-item.peligro { color: var(--alta-t); }
+
+    .animo { background: linear-gradient(135deg, #34268f 0%, #5a35c9 55%, #8a2fd0 100%); box-shadow: var(--shadow); }
+
+    /* Interruptor */
+    .switch { position: relative; width: 3.2rem; height: 1.9rem; border-radius: 9999px; background: var(--border); transition: background .2s; flex-shrink: 0; }
+    .switch::after { content: ''; position: absolute; top: .2rem; left: .2rem; width: 1.5rem; height: 1.5rem; border-radius: 9999px; background: #fff; transition: transform .2s; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
+    .switch[aria-checked="true"] { background: linear-gradient(90deg, #5b6cff, #a145ff); }
+    .switch[aria-checked="true"]::after { transform: translateX(1.3rem); }
+
     @keyframes pop-in {
-      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      from { opacity: 0; transform: translateY(8px) scale(.98); }
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
-    .pop-in { animation: pop-in 0.22s ease-out both; }
-    .bg-grid {
-      background-image:
-        radial-gradient(circle at 1px 1px, rgba(99,102,241,0.15) 1px, transparent 0);
-      background-size: 24px 24px;
-    }
+    .pop-in { animation: pop-in .22s ease-out both; }
 
-    /* Táctil: evita el retardo y el zoom por doble toque */
+    /* Táctil */
     button, input, select { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-    button:disabled, input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:disabled, input:disabled, select:disabled { opacity: .5; cursor: not-allowed; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
-    /* Botones de acción: siempre visibles, salvo con ratón (hover real) */
-    .acciones { opacity: 1; }
-    @media (hover: hover) and (pointer: fine) {
-      .acciones { opacity: 0; transition: opacity 0.15s; }
-      li:hover .acciones, li:focus-within .acciones { opacity: 1; }
+    /* Ajustes para móvil */
+    @media (max-width: 639px) {
+      .logo-box { width: 3rem; height: 3rem; border-radius: 1rem; }
+      .logo-box svg { width: 1.6rem; height: 1.6rem; }
+      .icon-btn { width: 2.8rem; height: 2.8rem; border-radius: .95rem; }
+      .stat { padding: .8rem .35rem; }
+      .stat-label { flex-direction: column; gap: .25rem; text-align: center; font-size: .68rem; letter-spacing: .03em; }
+      .stat-num { font-size: 2rem; }
+    }
+    @media (max-width: 360px) {
+      .logo-box { width: 2.6rem; height: 2.6rem; }
+      .titulo-app { font-size: 1.4rem; }
+    }
+    @media (max-width: 340px) {
+      .titulo-app { font-size: 1.2rem; }
+      .tab { min-width: 0; padding: .8rem .2rem; gap: .3rem; font-size: .8rem; }
+      .tab svg { width: 1rem; height: 1rem; }
     }
   </style>
 </head>
 
-<body class="min-h-screen bg-slate-50 text-slate-800 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100 bg-grid">
+<body class="min-h-screen">
 
-  <div class="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-8 sm:px-6 sm:py-12">
+  <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10">
+    <div class="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
 
-    <!-- Cabecera -->
-    <header class="mb-8 flex items-center justify-between gap-3">
-      <div class="flex min-w-0 items-center gap-3">
-        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-lg shadow-indigo-500/30">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+      <!-- ================= BARRA LATERAL ================= -->
+      <aside class="order-2 space-y-6 lg:order-1">
+
+        <!-- Calendario + tareas de hoy -->
+        <section class="panel p-5" aria-labelledby="cal-h">
+          <div class="flex items-center gap-4">
+            <div class="ico-box"><span data-ico="calendar" data-cls="h-7 w-7"></span></div>
+            <h2 id="cal-h" class="text-xl font-bold">Calendario</h2>
+          </div>
+
+          <div class="mt-5 flex items-center justify-between">
+            <button id="cal-prev" type="button" class="cal-nav" aria-label="Mes anterior"><span data-ico="chevron-left" data-cls="h-5 w-5" data-sw="2.5"></span></button>
+            <button id="cal-titulo" type="button" class="rounded-lg px-2 py-1 text-lg font-semibold" title="Ir a hoy"></button>
+            <button id="cal-next" type="button" class="cal-nav" aria-label="Mes siguiente"><span data-ico="chevron-right" data-cls="h-5 w-5" data-sw="2.5"></span></button>
+          </div>
+
+          <div class="muted mt-4 grid grid-cols-7 gap-1.5 text-center text-sm font-semibold" aria-hidden="true">
+            <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+          </div>
+          <div id="cal-grid" class="mt-2 grid grid-cols-7 gap-1.5"></div>
+
+          <div class="mt-5 border-t pt-5" style="border-color: var(--border)">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h3 class="flex min-w-0 items-center gap-2 text-lg font-bold">
+                <span class="shrink-0" style="color: var(--accent)"><span data-ico="bolt" data-cls="h-5 w-5"></span></span>
+                <span id="hoy-titulo" class="truncate">Tareas de hoy</span>
+              </h3>
+              <span id="hoy-contador" class="muted shrink-0 rounded-full px-3 py-1 text-sm font-semibold" style="background: var(--panel-2)">0/0</span>
+            </div>
+            <ul id="hoy-lista" class="space-y-2.5"></ul>
+            <p id="hoy-vacio" class="muted hidden py-2 text-sm">No hay tareas para este día.</p>
+            <button id="hoy-anadir" type="button" class="btn-ghost mt-3 flex w-full items-center justify-center gap-2 px-4 py-2.5 text-sm">
+              <span data-ico="plus" data-cls="h-4 w-4" data-sw="2.5"></span> Añadir para este día
+            </button>
+          </div>
+        </section>
+
+        <!-- Tarjeta de ánimo / progreso -->
+        <section class="animo relative overflow-hidden rounded-3xl p-5" aria-label="Progreso">
+          <div class="relative z-10 flex items-center gap-4">
+            <div class="text-5xl" aria-hidden="true">🏆</div>
+            <div class="min-w-0 flex-1">
+              <p id="animo-titulo" class="text-xl font-bold text-white"></p>
+              <p id="animo-texto" class="text-white/80"></p>
+            </div>
+          </div>
+          <div class="relative z-10 mt-4">
+            <div class="mb-1.5 flex items-center justify-between text-sm font-semibold text-white/85">
+              <span>Progreso</span><span id="progreso-texto">0%</span>
+            </div>
+            <div class="h-2.5 w-full overflow-hidden rounded-full bg-white/20">
+              <div id="progreso-barra" class="h-full w-0 rounded-full bg-white transition-all duration-500"></div>
+            </div>
+          </div>
+          <svg class="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full" viewBox="0 0 400 64" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 64V44l55-22 45 20 60-30 70 38 55-24 65 26 50-14v26z" fill="rgba(0,0,0,0.18)"/>
+            <path d="M0 64V54l70-16 55 14 75-22 80 24 120-16v26z" fill="rgba(0,0,0,0.22)"/>
           </svg>
+        </section>
+      </aside>
+
+      <!-- ================= CONTENIDO PRINCIPAL ================= -->
+      <main class="order-1 min-w-0 space-y-6 lg:order-2">
+
+        <!-- Cabecera -->
+        <header class="flex items-center justify-between gap-3">
+          <div class="flex min-w-0 items-center gap-3 sm:gap-4">
+            <div class="logo-box"><span data-ico="check" data-cls="h-9 w-9" data-sw="3"></span></div>
+            <div class="min-w-0">
+              <h1 class="titulo-app truncate text-2xl font-extrabold tracking-tight sm:text-4xl">TaskMaster</h1>
+              <p class="muted truncate text-base">Organiza. Planifica. Cumple.</p>
+            </div>
+          </div>
+
+          <div class="flex shrink-0 gap-2 sm:gap-3">
+            <div class="relative">
+              <button id="btn-notif" type="button" class="icon-btn" aria-label="Notificaciones" aria-expanded="false" aria-controls="panel-notif">
+                <span data-ico="bell" data-cls="h-6 w-6"></span>
+                <span id="notif-badge" class="absolute -right-1 -top-1 hidden h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-bold text-white"></span>
+              </button>
+              <div id="panel-notif" class="panel fixed inset-x-4 top-24 z-40 hidden p-4 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"></div>
+            </div>
+            <button id="btn-ajustes" type="button" class="icon-btn" aria-label="Ajustes">
+              <span data-ico="cog" data-cls="h-6 w-6"></span>
+              <span id="gear-dot" class="absolute right-2 top-2 hidden h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2" style="--tw-ring-color: var(--panel)"></span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Aviso: modo local -->
+        <section id="aviso-nube" class="hidden items-start gap-3 rounded-2xl border p-4 text-sm" style="border-color: rgba(139,109,255,.4); background: rgba(139,109,255,.12)">
+          <p class="flex-1">
+            ☁️ Tus tareas solo se guardan en este dispositivo.
+            <button id="aviso-entrar" type="button" class="font-semibold underline" style="color: var(--accent)">Inicia sesión</button>
+            para guardarlas en tu cuenta y no perderlas.
+          </p>
+          <button id="aviso-cerrar" type="button" aria-label="Cerrar aviso" class="muted -m-1 rounded-lg p-1"><span data-ico="x" data-cls="h-5 w-5"></span></button>
+        </section>
+
+        <!-- Estadísticas -->
+        <section class="grid grid-cols-3 gap-3 sm:gap-4" aria-label="Resumen">
+          <div class="stat">
+            <p class="stat-label"><span style="color: var(--accent)"><span data-ico="list-check" data-cls="h-5 w-5"></span></span>Total</p>
+            <p id="stat-total" class="stat-num">0</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label"><span class="text-amber-400"><span data-ico="clock" data-cls="h-5 w-5"></span></span>Pendientes</p>
+            <p id="stat-pendientes" class="stat-num text-amber-400">0</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label"><span class="text-emerald-400"><span data-ico="check-circle" data-cls="h-5 w-5"></span></span>Hechas</p>
+            <p id="stat-hechas" class="stat-num text-emerald-400">0</p>
+          </div>
+        </section>
+
+        <!-- Nueva tarea -->
+        <form id="form-tarea" class="panel p-5 sm:p-6" autocomplete="off" novalidate>
+          <h2 class="mb-4 flex items-center gap-3 text-xl font-bold">
+            <span style="color: var(--accent)"><span data-ico="plus" data-cls="h-6 w-6" data-sw="2.5"></span></span> Nueva tarea
+          </h2>
+
+          <div class="relative">
+            <span class="muted pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"><span data-ico="list" data-cls="h-5 w-5"></span></span>
+            <input id="input-titulo" type="text" maxlength="120" placeholder="¿Qué tienes que hacer?" aria-label="Título de la tarea" class="field" style="padding-left: 3rem" />
+          </div>
+          <p id="error-form" class="mt-2 hidden text-sm text-rose-500" role="alert">Escribe un título para la tarea.</p>
+
+          <div class="mt-4 grid items-center gap-2 sm:grid-cols-[10.5rem_minmax(0,1fr)] sm:gap-x-4 sm:gap-y-4">
+            <label for="select-prioridad" class="flex items-center gap-2.5 font-medium"><span class="muted"><span data-ico="fire" data-cls="h-5 w-5"></span></span>Prioridad</label>
+            <div class="relative">
+              <span id="dot-prioridad" class="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full"></span>
+              <select id="select-prioridad" class="field" style="padding-left: 2.8rem">
+                <option value="alta">Alta</option>
+                <option value="media" selected>Media</option>
+                <option value="baja">Baja</option>
+              </select>
+              <span class="muted pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2"><span data-ico="chevron-down" data-cls="h-5 w-5"></span></span>
+            </div>
+
+            <label for="input-fecha" class="mt-2 flex items-center gap-2.5 font-medium sm:mt-0"><span class="muted"><span data-ico="calendar" data-cls="h-5 w-5"></span></span>Fecha (opcional)</label>
+            <input id="input-fecha" type="date" class="field" />
+          </div>
+
+          <button type="submit" class="btn-grad mt-5 flex w-full items-center justify-center gap-2 px-5 py-3.5 text-base">
+            <span data-ico="plus" data-cls="h-5 w-5" data-sw="2.5"></span> Añadir tarea
+          </button>
+        </form>
+
+        <!-- Filtros -->
+        <div id="filtros" class="panel flex gap-1 p-1.5" role="tablist" aria-label="Filtrar tareas">
+          <button type="button" class="tab" data-filtro="todas" role="tab"><span data-ico="list" data-cls="h-5 w-5"></span>Todas</button>
+          <button type="button" class="tab" data-filtro="pendientes" role="tab"><span data-ico="clock" data-cls="h-5 w-5"></span>Pendientes</button>
+          <button type="button" class="tab" data-filtro="hechas" role="tab"><span data-ico="check-circle" data-cls="h-5 w-5"></span>Hechas</button>
         </div>
-        <div class="min-w-0">
-          <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">TaskMaster</h1>
-          <p id="fecha" class="truncate text-sm capitalize text-slate-500 dark:text-slate-400"></p>
+
+        <!-- Búsqueda -->
+        <div class="relative">
+          <span class="muted pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"><span data-ico="search" data-cls="h-5 w-5"></span></span>
+          <input id="input-buscar" type="search" placeholder="Buscar tareas…" aria-label="Buscar tareas" class="field" style="padding-left: 3rem" />
         </div>
-      </div>
 
-      <div class="flex shrink-0 items-center gap-2">
-        <!-- Cuenta -->
-        <button id="btn-cuenta" type="button" aria-label="Cuenta"
-          class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:text-indigo-300"></button>
+        <!-- Lista -->
+        <section aria-label="Lista de tareas">
+          <ul id="lista" class="space-y-3"></ul>
 
-        <!-- Tema -->
-        <button id="btn-tema" type="button" aria-label="Cambiar tema"
-          class="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm transition hover:scale-105 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-amber-300">
-          <svg xmlns="http://www.w3.org/2000/svg" class="hidden h-5 w-5 dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-          </svg>
-        </button>
-      </div>
-    </header>
+          <div id="vacio" class="hidden rounded-3xl border border-dashed py-14 text-center" style="border-color: var(--border)">
+            <div class="mb-3 text-5xl" aria-hidden="true">📝</div>
+            <p id="vacio-titulo" class="font-semibold">No hay tareas que mostrar</p>
+            <p id="vacio-texto" class="muted mt-1 text-sm">Añade una nueva o cambia el filtro.</p>
+          </div>
+        </section>
 
-    <!-- Aviso: modo local -->
-    <section id="aviso-nube" class="mb-6 hidden items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm dark:border-indigo-500/30 dark:bg-indigo-500/10">
-      <p class="flex-1">
-        ☁️ Tus tareas solo se guardan en este dispositivo.
-        <button id="aviso-entrar" type="button" class="font-semibold text-indigo-600 underline dark:text-indigo-300">Inicia sesión</button>
-        para guardarlas en tu cuenta y no perderlas.
-      </p>
-      <button id="aviso-cerrar" type="button" aria-label="Cerrar aviso" class="-m-1 rounded-lg p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </section>
-
-    <!-- Tarjetas de estadísticas -->
-    <section class="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
-      <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</p>
-        <p id="stat-total" class="mt-1 text-2xl font-bold sm:text-3xl">0</p>
-      </div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Pendientes</p>
-        <p id="stat-pendientes" class="mt-1 text-2xl font-bold text-amber-500 sm:text-3xl">0</p>
-      </div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Hechas</p>
-        <p id="stat-hechas" class="mt-1 text-2xl font-bold text-emerald-500 sm:text-3xl">0</p>
-      </div>
-    </section>
-
-    <!-- Barra de progreso -->
-    <section class="mb-6">
-      <div class="mb-2 flex items-center justify-between text-sm">
-        <span class="font-medium text-slate-600 dark:text-slate-300">Progreso</span>
-        <span id="progreso-texto" class="font-semibold text-indigo-600 dark:text-indigo-400">0%</span>
-      </div>
-      <div class="h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-        <div id="progreso-barra" class="h-full w-0 rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 transition-all duration-500"></div>
-      </div>
-    </section>
-
-    <!-- Formulario nueva tarea -->
-    <form id="form-tarea" class="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5" autocomplete="off">
-      <label for="input-titulo" class="mb-2 block text-sm font-semibold">Nueva tarea</label>
-      <div class="flex flex-col gap-3 sm:flex-row">
-        <input id="input-titulo" type="text" maxlength="120" placeholder="¿Qué tienes que hacer?"
-          class="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-base outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:placeholder-slate-500 sm:py-2.5 sm:text-sm" />
-        <select id="select-prioridad" aria-label="Prioridad"
-          class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-base outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 sm:py-2.5 sm:text-sm">
-          <option value="alta">🔴 Alta</option>
-          <option value="media" selected>🟡 Media</option>
-          <option value="baja">🟢 Baja</option>
-        </select>
-        <button type="submit"
-          class="rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110 active:scale-95 sm:py-2.5">
-          Añadir
-        </button>
-      </div>
-      <p id="error-form" class="mt-2 hidden text-sm text-rose-500">Escribe un título para la tarea.</p>
-    </form>
-
-    <!-- Filtros y búsqueda -->
-    <section class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div id="filtros" class="flex w-full rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:inline-flex sm:w-auto">
-        <button data-filtro="todas" class="filtro">Todas</button>
-        <button data-filtro="pendientes" class="filtro">Pendientes</button>
-        <button data-filtro="hechas" class="filtro">Hechas</button>
-      </div>
-      <input id="input-buscar" type="search" placeholder="Buscar…"
-        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-slate-800 dark:bg-slate-900 sm:w-56 sm:py-2 sm:text-sm" />
-    </section>
-
-    <!-- Lista de tareas -->
-    <main class="flex-1">
-      <ul id="lista" class="space-y-3"></ul>
-
-      <div id="vacio" class="hidden rounded-2xl border border-dashed border-slate-300 py-14 text-center dark:border-slate-700">
-        <div class="mb-3 text-5xl">📝</div>
-        <p id="vacio-titulo" class="font-semibold">No hay tareas que mostrar</p>
-        <p id="vacio-texto" class="mt-1 text-sm text-slate-500 dark:text-slate-400">Añade una nueva o cambia el filtro.</p>
-      </div>
-    </main>
-
-    <!-- Pie -->
-    <footer class="mt-8 flex items-center justify-between gap-3 text-sm text-slate-500 dark:text-slate-400">
-      <span><span id="pie-contador">0 tareas</span><span id="pie-sync" class="ml-2"></span></span>
-      <button id="btn-limpiar" type="button" class="-mr-2 px-2 py-2 font-medium text-rose-500 transition hover:text-rose-600 hover:underline">
-        Borrar completadas
-      </button>
-    </footer>
+        <footer class="muted flex items-center justify-between gap-3 pb-2 text-sm">
+          <span><span id="pie-contador">0 tareas</span><span id="pie-sync" class="ml-2"></span></span>
+        </footer>
+      </main>
+    </div>
   </div>
 
   <!-- Aviso emergente -->
-  <div id="toast" role="status" class="pointer-events-none fixed bottom-4 left-1/2 z-[60] hidden w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-center text-sm text-white shadow-xl dark:bg-slate-100 dark:text-slate-900"></div>
+  <div id="toast" role="status" class="pointer-events-none fixed bottom-4 left-1/2 z-[60] hidden w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-center text-sm text-white shadow-xl ring-1 ring-white/10"></div>
 
-  <!-- Ventana de cuenta -->
-  <div id="modal-cuenta" class="fixed inset-0 z-50 hidden items-end justify-center bg-slate-900/60 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
-    <div class="pop-in w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-      <div class="mb-4 flex items-start justify-between gap-3">
-        <h2 id="modal-titulo" class="text-xl font-bold">Cuenta</h2>
-        <button id="modal-cerrar" type="button" aria-label="Cerrar" class="-m-1 rounded-lg p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
+  <!-- ================= AJUSTES ================= -->
+  <div id="modal-ajustes" class="fixed inset-0 z-50 hidden items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <div class="panel pop-in max-h-[92vh] w-full max-w-md overflow-y-auto p-6">
+      <div class="mb-5 flex items-start justify-between gap-3">
+        <h2 id="modal-titulo" class="text-2xl font-bold">Ajustes</h2>
+        <button id="modal-cerrar" type="button" aria-label="Cerrar" class="muted -m-1 rounded-lg p-1"><span data-ico="x" data-cls="h-6 w-6"></span></button>
       </div>
 
-      <!-- Vista: nube sin configurar -->
-      <div id="vista-config" class="hidden space-y-3 text-sm">
-        <p>La sincronización en la nube todavía no está configurada.</p>
-        <p class="text-slate-500 dark:text-slate-400">Abre el archivo <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">index.html</code> con un editor de texto, busca <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">FIREBASE_CONFIG</code> y pega tus datos de Firebase. Mientras tanto, tus tareas se guardan solo en este dispositivo.</p>
-      </div>
+      <!-- Cuenta -->
+      <section class="mb-6">
+        <h3 id="cuenta-titulo" class="muted mb-3 text-sm font-semibold uppercase tracking-wide">Cuenta</h3>
 
-      <!-- Vista: formulario de acceso -->
-      <form id="vista-form" class="hidden space-y-4" novalidate>
-        <p id="form-descripcion" class="text-sm text-slate-500 dark:text-slate-400"></p>
-        <div>
-          <label for="auth-email" class="mb-1 block text-sm font-semibold">Correo electrónico</label>
-          <input id="auth-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" placeholder="tucorreo@ejemplo.com"
-            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-base outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 sm:text-sm" />
+        <div id="vista-config" class="hidden space-y-2 text-sm">
+          <p>La sincronización en la nube todavía no está configurada.</p>
+          <p class="muted">Abre <code>index.html</code> con un editor de texto, busca <code>FIREBASE_CONFIG</code> y pega tus datos de Firebase. Mientras tanto, tus tareas se guardan solo en este dispositivo.</p>
         </div>
-        <div>
-          <label for="auth-pass" class="mb-1 block text-sm font-semibold">Contraseña</label>
-          <div class="relative">
-            <input id="auth-pass" type="password" autocomplete="current-password" placeholder="Mínimo 6 caracteres"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-4 pr-12 text-base outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 sm:text-sm" />
-            <button id="auth-ver-pass" type="button" aria-label="Mostrar contraseña" title="Mostrar contraseña"
-              class="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition hover:text-indigo-600 dark:hover:text-indigo-300">
-              <svg id="ojo-abierto" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-              <svg id="ojo-tachado" xmlns="http://www.w3.org/2000/svg" class="hidden h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-            </button>
+
+        <form id="vista-form" class="hidden space-y-4" novalidate>
+          <p id="form-descripcion" class="muted text-sm"></p>
+          <div>
+            <label for="auth-email" class="mb-1 block text-sm font-semibold">Correo electrónico</label>
+            <input id="auth-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" placeholder="tucorreo@ejemplo.com" class="field" />
           </div>
-        </div>
-        <p id="auth-mensaje" class="hidden text-sm" role="alert"></p>
-        <button id="auth-enviar" type="submit"
-          class="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-fuchsia-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110 active:scale-95"></button>
-        <div class="flex flex-col items-center gap-2 text-sm">
-          <button id="auth-cambiar" type="button" class="font-medium text-indigo-600 hover:underline dark:text-indigo-300"></button>
-          <button id="auth-olvide" type="button" class="text-slate-500 hover:underline dark:text-slate-400">¿Olvidaste tu contraseña?</button>
-        </div>
-      </form>
+          <div>
+            <label for="auth-pass" class="mb-1 block text-sm font-semibold">Contraseña</label>
+            <div class="relative">
+              <input id="auth-pass" type="password" autocomplete="current-password" placeholder="Mínimo 6 caracteres" class="field" style="padding-right: 3rem" />
+              <button id="auth-ver-pass" type="button" aria-label="Mostrar contraseña" title="Mostrar contraseña" class="muted absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2">
+                <span id="ojo-abierto" data-ico="eye" data-cls="h-5 w-5"></span>
+                <span id="ojo-tachado" data-ico="eye-off" data-cls="h-5 w-5" class="hidden"></span>
+              </button>
+            </div>
+          </div>
+          <p id="auth-mensaje" class="hidden text-sm" role="alert"></p>
+          <button id="auth-enviar" type="submit" class="btn-grad w-full px-5 py-3 text-sm"></button>
+          <div class="flex flex-col items-center gap-2 text-sm">
+            <button id="auth-cambiar" type="button" class="font-medium" style="color: var(--accent)"></button>
+            <button id="auth-olvide" type="button" class="muted hover:underline">¿Olvidaste tu contraseña?</button>
+          </div>
+        </form>
 
-      <!-- Vista: sesión iniciada -->
-      <div id="vista-sesion" class="hidden space-y-4 text-sm">
-        <div>
-          <p class="text-slate-500 dark:text-slate-400">Sesión iniciada como</p>
-          <p id="sesion-email" class="break-all font-semibold"></p>
+        <div id="vista-sesion" class="hidden space-y-4 text-sm">
+          <div>
+            <p class="muted">Sesión iniciada como</p>
+            <p id="sesion-email" class="break-all font-semibold"></p>
+          </div>
+          <p class="muted">Tus tareas se guardan en tu cuenta y las verás en cualquier dispositivo donde inicies sesión.</p>
+          <button id="btn-salir" type="button" class="w-full rounded-xl border border-rose-400/50 px-5 py-3 text-sm font-semibold text-rose-500 transition hover:bg-rose-500/10">Cerrar sesión</button>
         </div>
-        <p class="text-slate-500 dark:text-slate-400">Tus tareas se guardan en tu cuenta y las verás en cualquier dispositivo donde inicies sesión.</p>
-        <button id="btn-salir" type="button"
-          class="w-full rounded-xl border border-rose-300 px-5 py-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-300 dark:hover:bg-rose-500/10">
-          Cerrar sesión
-        </button>
-      </div>
+      </section>
+
+      <!-- Apariencia -->
+      <section class="mb-6 border-t pt-5" style="border-color: var(--border)">
+        <h3 class="muted mb-3 text-sm font-semibold uppercase tracking-wide">Apariencia</h3>
+        <div class="flex items-center justify-between gap-4">
+          <span class="font-medium">Modo oscuro</span>
+          <button id="sw-tema" type="button" role="switch" aria-checked="true" aria-label="Modo oscuro" class="switch"></button>
+        </div>
+      </section>
+
+      <!-- Datos -->
+      <section class="border-t pt-5" style="border-color: var(--border)">
+        <h3 class="muted mb-3 text-sm font-semibold uppercase tracking-wide">Datos</h3>
+        <button id="btn-limpiar" type="button" class="w-full rounded-xl border border-rose-400/50 px-5 py-3 text-sm font-semibold text-rose-500 transition hover:bg-rose-500/10">Borrar completadas</button>
+      </section>
     </div>
   </div>
 
@@ -230,7 +516,6 @@
 
     /* =====================================================================
        CONFIGURACIÓN DE LA NUBE (Firebase)
-       Pega aquí los datos de tu proyecto de Firebase (ver instrucciones).
        Si lo dejas vacío, la app funciona igual pero solo en modo local.
        ===================================================================== */
     const FIREBASE_CONFIG = {
@@ -247,11 +532,55 @@
       FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId && FIREBASE_CONFIG.appId
     );
 
+    /* ---------- Iconos (trazos tipo Heroicons) ---------- */
+    const ICONOS = {
+      'calendar': 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+      'check': 'M5 13l4 4L19 7',
+      'check-circle': 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+      'clock': 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+      'bell': 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',
+      'cog': 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z|M15 12a3 3 0 11-6 0 3 3 0 016 0z',
+      'plus': 'M12 4v16m8-8H4',
+      'x': 'M6 18L18 6M6 6l12 12',
+      'chevron-down': 'M19 9l-7 7-7-7',
+      'chevron-left': 'M15 19l-7-7 7-7',
+      'chevron-right': 'M9 5l7 7-7 7',
+      'list': 'M4 6h.01M8 6h12M4 12h.01M8 12h12M4 18h.01M8 18h12',
+      'list-check': 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
+      'fire': 'M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z|M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z',
+      'bolt': 'M13 10V3L4 14h7v7l9-11h-7z',
+      'search': 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+      'dots': 'M12 5v.01M12 12v.01M12 19v.01',
+      'pencil': 'M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.83a2 2 0 01-.9.52L7 17l.65-3.93a2 2 0 01.52-.9z',
+      'trash': 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
+      'eye': 'M15 12a3 3 0 11-6 0 3 3 0 016 0z|M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
+      'eye-off': 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21'
+    };
+    function icono(nombre, clases, grosor) {
+      const trazos = (ICONOS[nombre] || '').split('|')
+        .map((d) => '<path stroke-linecap="round" stroke-linejoin="round" d="' + d + '"/>').join('');
+      return '<svg xmlns="http://www.w3.org/2000/svg" class="' + (clases || 'h-5 w-5') +
+        '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="' + (grosor || 2) +
+        '" aria-hidden="true">' + trazos + '</svg>';
+    }
+    // Sustituye los marcadores <span data-ico="..."> del HTML por su SVG
+    document.querySelectorAll('[data-ico]').forEach((el) => {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = icono(el.dataset.ico, el.dataset.cls, el.dataset.sw);
+      const svg = tpl.content.firstElementChild;
+      if (el.id) svg.id = el.id;
+      el.classList.forEach((c) => svg.classList.add(c));
+      el.replaceWith(svg);
+    });
+
     /* ---------- Constantes y utilidades ---------- */
     const CLAVE_TAREAS = 'taskmaster.tareas';
     const CLAVE_TEMA = 'taskmaster.tema';
     const CLAVE_AVISO = 'taskmaster.aviso-cerrado';
     const PRIORIDADES = ['alta', 'media', 'baja'];
+    const COLOR_PRIORIDAD = { alta: '#ff5a6e', media: '#ffc233', baja: '#4da3ff' };
+    const ETIQUETA_PRIORIDAD = { alta: 'Alta', media: 'Media', baja: 'Baja' };
+    const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
     const $ = (id) => document.getElementById(id);
 
@@ -268,6 +597,27 @@
       try { localStorage.setItem(clave, JSON.stringify(valor)); } catch (e) { /* sin almacenamiento */ }
     }
 
+    // Fechas en formato AAAA-MM-DD (hora local)
+    const pad = (n) => String(n).padStart(2, '0');
+    const aISO = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    const hoyISO = () => aISO(new Date());
+    function deISO(s) {
+      const p = s.split('-').map(Number);
+      return new Date(p[0], p[1] - 1, p[2]);
+    }
+    function fechaValida(s) {
+      return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(deISO(s).getTime());
+    }
+    function fechaCorta(s) {
+      const d = deISO(s);
+      return d.getDate() + ' ' + MESES[d.getMonth()].slice(0, 3);
+    }
+    function fechaLarga(s) {
+      const d = deISO(s);
+      return d.getDate() + ' de ' + MESES[d.getMonth()];
+    }
+    const capitalizar = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
     // Valida y normaliza una lista de tareas (local o de la nube)
     function limpiarTareas(arr) {
       if (!Array.isArray(arr)) return [];
@@ -278,14 +628,16 @@
           id: String(t.id || uid()),
           titulo: t.titulo.slice(0, 120),
           prioridad: PRIORIDADES.includes(t.prioridad) ? t.prioridad : 'media',
-          hecha: Boolean(t.hecha)
+          hecha: Boolean(t.hecha),
+          fecha: fechaValida(t.fecha) ? t.fecha : null
         }));
     }
     function tareasIniciales() {
+      const hoy = hoyISO();
       return [
-        { id: uid(), titulo: 'Bienvenido a TaskMaster 👋', prioridad: 'media', hecha: false },
-        { id: uid(), titulo: 'Marca esta tarea como hecha', prioridad: 'baja', hecha: false },
-        { id: uid(), titulo: 'Prueba el modo oscuro (arriba a la derecha)', prioridad: 'alta', hecha: true }
+        { id: uid(), titulo: 'Bienvenido a TaskMaster 👋', prioridad: 'media', hecha: false, fecha: hoy },
+        { id: uid(), titulo: 'Marca esta tarea como hecha', prioridad: 'baja', hecha: false, fecha: hoy },
+        { id: uid(), titulo: 'Toca un día del calendario para ver sus tareas', prioridad: 'alta', hecha: true, fecha: null }
       ];
     }
     function cargarLocal() {
@@ -293,18 +645,17 @@
       return guardadas === null ? tareasIniciales() : limpiarTareas(guardadas);
     }
 
-    const ESTILOS_PRIORIDAD = {
-      alta:  { etiqueta: 'Alta',  clases: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300' },
-      media: { etiqueta: 'Media', clases: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' },
-      baja:  { etiqueta: 'Baja',  clases: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' }
-    };
-
     /* ---------- Estado ---------- */
     let tareas = cargarLocal();
     let filtro = 'todas';
     let busqueda = '';
     let editandoId = null;
-    let renderizando = false;
+    let menuId = null;                       // tarea con el menú ⋮ abierto
+    let diaSel = hoyISO();                   // día seleccionado en el calendario
+    const ahora = new Date();
+    let vista = { y: ahora.getFullYear(), m: ahora.getMonth() };   // mes visible
+    const idsVistos = new Set();
+    let yaPintado = false;
 
     // Nube
     let nube = null;                 // módulos de Firebase ya cargados
@@ -318,7 +669,7 @@
     /* ---------- Elementos ---------- */
     const lista = $('lista'), vacio = $('vacio');
     const form = $('form-tarea'), inputTitulo = $('input-titulo');
-    const selectPrioridad = $('select-prioridad'), errorForm = $('error-form');
+    const selectPrioridad = $('select-prioridad'), inputFecha = $('input-fecha'), errorForm = $('error-form');
 
     /* ---------- Aviso emergente ---------- */
     let toastTimer = null;
@@ -334,19 +685,13 @@
     function aplicarTema(oscuro) {
       document.documentElement.classList.toggle('dark', oscuro);
       escribir(CLAVE_TEMA, oscuro ? 'oscuro' : 'claro');
+      $('sw-tema').setAttribute('aria-checked', String(oscuro));
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', oscuro ? '#080719' : '#f3f2fc');
     }
-    const temaGuardado = leer(CLAVE_TEMA, null);
-    aplicarTema(temaGuardado
-      ? temaGuardado === 'oscuro'
-      : window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-    $('btn-tema').addEventListener('click', () => {
+    aplicarTema(leer(CLAVE_TEMA, 'oscuro') !== 'claro');
+    $('sw-tema').addEventListener('click', () => {
       aplicarTema(!document.documentElement.classList.contains('dark'));
-    });
-
-    /* ---------- Fecha ---------- */
-    $('fecha').textContent = new Date().toLocaleDateString('es-ES', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
 
     /* =====================================================================
@@ -405,102 +750,182 @@
       });
     }
 
-    function crearItem(t) {
-      const li = document.createElement('li');
-      li.className = 'pop-in group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900';
-
-      // Casilla
-      const check = document.createElement('input');
-      check.type = 'checkbox';
-      check.checked = t.hecha;
-      check.setAttribute('aria-label', 'Marcar como hecha');
-      check.className = 'h-6 w-6 shrink-0 cursor-pointer rounded-md accent-indigo-600';
-      check.addEventListener('change', () => {
-        t.hecha = check.checked;
+    function crearCasilla(t, mini) {
+      const chk = document.createElement('button');
+      chk.type = 'button';
+      chk.className = 'chk' + (t.hecha ? ' on' : '') + (mini ? ' mini' : '');
+      chk.setAttribute('role', 'checkbox');
+      chk.setAttribute('aria-checked', String(t.hecha));
+      chk.setAttribute('aria-label', (t.hecha ? 'Marcar como pendiente: ' : 'Marcar como hecha: ') + t.titulo);
+      chk.innerHTML = icono('check', mini ? 'h-3.5 w-3.5' : 'h-4 w-4', 3.5);
+      chk.addEventListener('click', () => {
+        t.hecha = !t.hecha;
         actualizar();
       });
+      return chk;
+    }
 
-      // Contenido
+    function crearBadgePrioridad(t, clasesExtra) {
+      const b = document.createElement('span');
+      b.className = 'pri pri-' + t.prioridad + ' ' + (clasesExtra || '');
+      b.textContent = ETIQUETA_PRIORIDAD[t.prioridad] || 'Media';
+      return b;
+    }
+
+    function crearItem(t, animar) {
+      if (t.id === editandoId) return crearEditor(t);
+
+      const hoy = hoyISO();
+      const li = document.createElement('li');
+      li.className = 'tarea' + (animar ? ' pop-in' : '');
+
       const cuerpo = document.createElement('div');
       cuerpo.className = 'min-w-0 flex-1';
 
-      let titulo;
-      if (t.id === editandoId) {
-        // Edición en línea (los prompt() no funcionan bien en móviles)
-        titulo = document.createElement('input');
-        titulo.type = 'text';
-        titulo.value = t.titulo;
-        titulo.maxLength = 120;
-        titulo.setAttribute('aria-label', 'Editar título');
-        titulo.className = 'w-full rounded-lg border border-indigo-400 bg-slate-50 px-3 py-2 text-base outline-none focus:ring-4 focus:ring-indigo-500/20 dark:border-indigo-500 dark:bg-slate-800 sm:text-sm';
-        let cerrado = false;
-        const terminar = (guardarCambio) => {
-          if (cerrado || renderizando) return;
-          cerrado = true;
-          const nuevo = titulo.value.trim();
-          if (guardarCambio && nuevo) t.titulo = nuevo.slice(0, 120);
-          editandoId = null;
-          actualizar();
-        };
-        titulo.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') terminar(true);
-          if (e.key === 'Escape') terminar(false);
-        });
-        titulo.addEventListener('blur', () => terminar(true));
-        setTimeout(() => { titulo.focus(); titulo.select(); }, 0);
-      } else {
-        titulo = document.createElement('p');
-        titulo.textContent = t.titulo; // textContent evita inyección de HTML
-        titulo.className = 'break-words text-sm font-medium sm:text-base ' +
-          (t.hecha ? 'text-slate-400 line-through dark:text-slate-500' : '');
+      const titulo = document.createElement('p');
+      titulo.textContent = t.titulo; // textContent evita inyección de HTML
+      titulo.className = 'break-words text-base font-medium sm:text-lg' + (t.hecha ? ' titulo-hecha' : '');
+      cuerpo.appendChild(titulo);
+
+      const meta = document.createElement('div');
+      meta.className = 'mt-1.5 flex flex-wrap items-center gap-2';
+      if (t.fecha) {
+        const vencida = !t.hecha && t.fecha < hoy;
+        const f = document.createElement('span');
+        f.className = 'fecha-badge' + (vencida ? ' vencida' : '');
+        f.innerHTML = icono('calendar', 'h-3.5 w-3.5', 2);
+        f.append(t.fecha === hoy ? 'Hoy' : fechaCorta(t.fecha));
+        meta.appendChild(f);
       }
+      meta.appendChild(crearBadgePrioridad(t, 'sm:hidden'));   // en móvil, junto al título
+      cuerpo.appendChild(meta);
 
-      const p = ESTILOS_PRIORIDAD[t.prioridad] || ESTILOS_PRIORIDAD.media;
-      const badge = document.createElement('span');
-      badge.textContent = p.etiqueta;
-      badge.className = 'mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ' + p.clases;
+      const prioDerecha = crearBadgePrioridad(t, 'hidden shrink-0 sm:inline-flex');
 
-      cuerpo.append(titulo, badge);
-
-      // Botones
-      const acciones = document.createElement('div');
-      acciones.className = 'acciones flex shrink-0 gap-0.5';
-
-      const btnEditar = document.createElement('button');
-      btnEditar.type = 'button';
-      btnEditar.title = 'Editar';
-      btnEditar.setAttribute('aria-label', 'Editar tarea');
-      btnEditar.className = 'rounded-lg p-2.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/10';
-      btnEditar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.768-6.768a2 2 0 112.828 2.828L11.828 15.83a2 2 0 01-.9.52L7 17l.65-3.93a2 2 0 01.52-.9z"/></svg>';
-      btnEditar.addEventListener('click', () => {
-        editandoId = t.id;
+      const kebab = document.createElement('button');
+      kebab.type = 'button';
+      kebab.className = 'muted -mr-1 shrink-0 rounded-lg p-2 transition hover:text-[color:var(--text)]';
+      kebab.setAttribute('aria-label', 'Más opciones');
+      kebab.setAttribute('aria-haspopup', 'menu');
+      kebab.setAttribute('aria-expanded', String(menuId === t.id));
+      kebab.innerHTML = icono('dots', 'h-5 w-5', 3);
+      kebab.dataset.menu = '1';
+      kebab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cerrarNotif();
+        menuId = menuId === t.id ? null : t.id;
         render();
       });
 
-      const btnBorrar = document.createElement('button');
-      btnBorrar.type = 'button';
-      btnBorrar.title = 'Eliminar';
-      btnBorrar.setAttribute('aria-label', 'Eliminar tarea');
-      btnBorrar.className = 'rounded-lg p-2.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10';
-      btnBorrar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
-      btnBorrar.addEventListener('click', () => {
-        tareas = tareas.filter((x) => x.id !== t.id);
-        actualizar();
-      });
+      li.append(crearCasilla(t, false), cuerpo, prioDerecha, kebab);
 
-      acciones.append(btnEditar, btnBorrar);
-      li.append(check, cuerpo, acciones);
+      if (menuId === t.id) {
+        const menu = document.createElement('div');
+        menu.className = 'menu-flotante';
+        menu.setAttribute('role', 'menu');
+        menu.dataset.menu = '1';
+
+        const bEditar = document.createElement('button');
+        bEditar.type = 'button';
+        bEditar.className = 'menu-item';
+        bEditar.setAttribute('role', 'menuitem');
+        bEditar.innerHTML = icono('pencil', 'h-4 w-4', 2) + '<span>Editar</span>';
+        bEditar.addEventListener('click', () => { menuId = null; editandoId = t.id; render(); });
+
+        const bBorrar = document.createElement('button');
+        bBorrar.type = 'button';
+        bBorrar.className = 'menu-item peligro';
+        bBorrar.setAttribute('role', 'menuitem');
+        bBorrar.innerHTML = icono('trash', 'h-4 w-4', 2) + '<span>Eliminar</span>';
+        bBorrar.addEventListener('click', () => {
+          menuId = null;
+          tareas = tareas.filter((x) => x.id !== t.id);
+          actualizar();
+        });
+
+        menu.append(bEditar, bBorrar);
+        li.appendChild(menu);
+      }
       return li;
     }
 
-    function render() {
-      // Lista (la marca evita re-entradas si el navegador dispara "blur" al quitar un campo)
-      renderizando = true;
-      lista.replaceChildren();
-      renderizando = false;
+    // Edición completa de una tarea (título, prioridad y fecha)
+    function crearEditor(t) {
+      const li = document.createElement('li');
+      li.className = 'tarea editor pop-in';
 
+      const f = document.createElement('form');
+      f.className = 'w-full space-y-3';
+      f.noValidate = true;
+
+      const titulo = document.createElement('input');
+      titulo.type = 'text';
+      titulo.value = t.titulo;
+      titulo.maxLength = 120;
+      titulo.className = 'field';
+      titulo.setAttribute('aria-label', 'Título de la tarea');
+
+      const fila = document.createElement('div');
+      fila.className = 'grid gap-3 sm:grid-cols-2';
+
+      const sel = document.createElement('select');
+      sel.className = 'field';
+      sel.setAttribute('aria-label', 'Prioridad');
+      PRIORIDADES.forEach((p) => {
+        const o = document.createElement('option');
+        o.value = p;
+        o.textContent = ETIQUETA_PRIORIDAD[p];
+        if (p === t.prioridad) o.selected = true;
+        sel.appendChild(o);
+      });
+
+      const fecha = document.createElement('input');
+      fecha.type = 'date';
+      fecha.value = t.fecha || '';
+      fecha.className = 'field';
+      fecha.setAttribute('aria-label', 'Fecha (opcional)');
+
+      fila.append(sel, fecha);
+
+      const botones = document.createElement('div');
+      botones.className = 'flex gap-3';
+      const guardar = document.createElement('button');
+      guardar.type = 'submit';
+      guardar.className = 'btn-grad flex-1 px-4 py-2.5 text-sm';
+      guardar.textContent = 'Guardar';
+      const cancelar = document.createElement('button');
+      cancelar.type = 'button';
+      cancelar.className = 'btn-ghost flex-1 px-4 py-2.5 text-sm';
+      cancelar.textContent = 'Cancelar';
+      botones.append(guardar, cancelar);
+
+      f.append(titulo, fila, botones);
+      li.appendChild(f);
+
+      f.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const nuevo = titulo.value.trim();
+        if (!nuevo) { titulo.focus(); return; }
+        t.titulo = nuevo.slice(0, 120);
+        t.prioridad = sel.value;
+        t.fecha = fechaValida(fecha.value) ? fecha.value : null;
+        editandoId = null;
+        actualizar();
+      });
+      cancelar.addEventListener('click', () => { editandoId = null; render(); });
+      f.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); editandoId = null; render(); }
+      });
+      setTimeout(() => { titulo.focus(); titulo.select(); }, 0);
+      return li;
+    }
+
+    function renderLista() {
+      lista.replaceChildren();
       const visibles = tareasFiltradas();
-      visibles.forEach((t) => lista.appendChild(crearItem(t)));
+      visibles.forEach((t) => lista.appendChild(crearItem(t, yaPintado && !idsVistos.has(t.id))));
+      tareas.forEach((t) => idsVistos.add(t.id));
+      yaPintado = true;
       vacio.classList.toggle('hidden', visibles.length > 0);
 
       const cargando = Boolean(usuario) && !listo;
@@ -511,29 +936,190 @@
 
       // Mientras se descargan las tareas de la nube no se puede editar (evita sobrescribirlas)
       form.querySelectorAll('input, select, button').forEach((el) => { el.disabled = cargando; });
-      $('btn-limpiar').disabled = cargando;
+      $('hoy-anadir').disabled = cargando;
+    }
 
-      // Estadísticas
+    function renderCalendario() {
+      const y = vista.y, m = vista.m;
+      $('cal-titulo').textContent = capitalizar(MESES[m]) + ' ' + y;
+
+      const offset = (new Date(y, m, 1).getDay() + 6) % 7;     // lunes = 0
+      const inicio = new Date(y, m, 1 - offset);
+      const hoy = hoyISO();
+
+      const porDia = new Map();
+      tareas.forEach((t) => {
+        if (!t.fecha) return;
+        porDia.set(t.fecha, (porDia.get(t.fecha) || 0) + 1);
+      });
+
+      const grid = $('cal-grid');
+      grid.replaceChildren();
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
+        const f = aISO(d);
+        const n = porDia.get(f) || 0;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cal-dia' +
+          (d.getMonth() !== m ? ' fuera' : '') +
+          (f === hoy ? ' hoy' : '') +
+          (f === diaSel ? ' sel' : '');
+        btn.setAttribute('aria-pressed', String(f === diaSel));
+        btn.setAttribute('aria-label',
+          d.getDate() + ' de ' + MESES[d.getMonth()] + ' de ' + d.getFullYear() +
+          (n ? ', ' + n + (n === 1 ? ' tarea' : ' tareas') : ''));
+        btn.textContent = d.getDate();
+        if (n) {
+          const punto = document.createElement('span');
+          punto.className = 'cal-punto';
+          btn.appendChild(punto);
+        }
+        btn.addEventListener('click', () => {
+          diaSel = f;
+          if (d.getMonth() !== vista.m) vista = { y: d.getFullYear(), m: d.getMonth() };
+          inputFecha.value = f;          // la nueva tarea se pondrá en este día
+          render();
+        });
+        grid.appendChild(btn);
+      }
+    }
+
+    function renderHoy() {
+      const hoy = hoyISO();
+      const delDia = tareas.filter((t) => t.fecha === diaSel);
+      const hechas = delDia.filter((t) => t.hecha).length;
+
+      $('hoy-titulo').textContent = diaSel === hoy ? 'Tareas de hoy' : 'Tareas del ' + fechaLarga(diaSel);
+      $('hoy-contador').textContent = hechas + '/' + delDia.length;
+      $('hoy-vacio').classList.toggle('hidden', delDia.length > 0);
+
+      const ul = $('hoy-lista');
+      ul.replaceChildren();
+      delDia.forEach((t) => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center gap-3';
+        const txt = document.createElement('span');
+        txt.textContent = t.titulo;
+        txt.className = 'min-w-0 flex-1 break-words' + (t.hecha ? ' titulo-hecha' : '');
+        li.append(crearCasilla(t, true), txt);
+        ul.appendChild(li);
+      });
+    }
+
+    function renderStats() {
       const total = tareas.length;
       const hechas = tareas.filter((t) => t.hecha).length;
-      const pendientes = total - hechas;
       const porcentaje = total ? Math.round((hechas / total) * 100) : 0;
 
       $('stat-total').textContent = total;
-      $('stat-pendientes').textContent = pendientes;
+      $('stat-pendientes').textContent = total - hechas;
       $('stat-hechas').textContent = hechas;
       $('progreso-texto').textContent = porcentaje + '%';
       $('progreso-barra').style.width = porcentaje + '%';
       $('pie-contador').textContent = total + (total === 1 ? ' tarea' : ' tareas');
 
-      // Filtros activos
-      document.querySelectorAll('.filtro').forEach((b) => {
+      let titulo = '¡Tú puedes!', texto = 'Sigue siendo constante 💪';
+      if (total === 0) { titulo = '¡Todo despejado!'; texto = 'Añade tu primera tarea ✨'; }
+      else if (porcentaje === 100) { titulo = '¡Lo lograste!'; texto = 'Todas las tareas completadas 🎉'; }
+      else if (porcentaje >= 50) { titulo = '¡Casi lo tienes!'; texto = 'Ya llevas más de la mitad 🔥'; }
+      $('animo-titulo').textContent = titulo;
+      $('animo-texto').textContent = texto;
+
+      // Botón de borrar completadas (en Ajustes)
+      const btn = $('btn-limpiar');
+      if (!btn.dataset.confirmar) {
+        btn.textContent = 'Borrar completadas' + (hechas ? ' (' + hechas + ')' : '');
+      }
+      btn.disabled = hechas === 0 || (Boolean(usuario) && !listo);
+    }
+
+    function renderFiltros() {
+      document.querySelectorAll('.tab').forEach((b) => {
         const activo = b.dataset.filtro === filtro;
-        b.className = 'filtro flex-1 rounded-lg px-4 py-2 text-sm font-medium transition sm:flex-none sm:py-1.5 ' +
-          (activo
-            ? 'bg-indigo-600 text-white shadow'
-            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800');
+        b.classList.toggle('activa', activo);
+        b.setAttribute('aria-selected', String(activo));
       });
+    }
+
+    /* ---------- Notificaciones (campana) ---------- */
+    function renderNotif() {
+      const hoy = hoyISO();
+      const vencidas = tareas.filter((t) => !t.hecha && t.fecha && t.fecha < hoy)
+        .sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+      const deHoy = tareas.filter((t) => !t.hecha && t.fecha === hoy);
+      const n = vencidas.length + deHoy.length;
+
+      const badge = $('notif-badge');
+      badge.textContent = n > 9 ? '9+' : String(n);
+      badge.classList.toggle('hidden', n === 0);
+      badge.classList.toggle('flex', n > 0);
+
+      const panel = $('panel-notif');
+      panel.replaceChildren();
+
+      const h = document.createElement('p');
+      h.className = 'mb-3 text-lg font-bold';
+      h.textContent = 'Notificaciones';
+      panel.appendChild(h);
+
+      if (!n) {
+        const p = document.createElement('p');
+        p.className = 'muted text-sm';
+        p.textContent = 'No tienes nada pendiente para hoy. ¡Buen trabajo! 🎉';
+        panel.appendChild(p);
+        return;
+      }
+
+      const grupo = (nombre, items, rojo) => {
+        if (!items.length) return;
+        const t = document.createElement('p');
+        t.className = 'muted mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wide';
+        t.textContent = nombre + ' (' + items.length + ')';
+        const ul = document.createElement('ul');
+        ul.className = 'space-y-1.5';
+        items.forEach((x) => {
+          const li = document.createElement('li');
+          li.className = 'flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm';
+          li.style.background = 'var(--panel-2)';
+          const a = document.createElement('span');
+          a.className = 'min-w-0 break-words';
+          a.textContent = x.titulo;
+          const b = document.createElement('span');
+          b.className = 'shrink-0 text-xs font-semibold ' + (rojo ? 'text-rose-400' : 'muted');
+          b.textContent = fechaCorta(x.fecha);
+          li.append(a, b);
+          ul.appendChild(li);
+        });
+        panel.append(t, ul);
+      };
+      grupo('Vencidas', vencidas, true);
+      grupo('Para hoy', deHoy, false);
+    }
+
+    function abrirNotif() {
+      menuId = null;
+      $('panel-notif').classList.remove('hidden');
+      $('btn-notif').setAttribute('aria-expanded', 'true');
+    }
+    function cerrarNotif() {
+      $('panel-notif').classList.add('hidden');
+      $('btn-notif').setAttribute('aria-expanded', 'false');
+    }
+    $('btn-notif').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const abierto = !$('panel-notif').classList.contains('hidden');
+      if (abierto) cerrarNotif(); else { abrirNotif(); render(); }
+    });
+
+    function render() {
+      renderLista();
+      renderCalendario();
+      renderHoy();
+      renderStats();
+      renderFiltros();
+      renderNotif();
     }
 
     /* ---------- Estado de sincronización y cuenta en pantalla ---------- */
@@ -550,27 +1136,14 @@
     }
 
     function pintarCuenta() {
-      const btn = $('btn-cuenta');
-      btn.replaceChildren();
-      if (usuario) {
-        const avatar = document.createElement('span');
-        avatar.className = 'flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-xs font-bold uppercase text-white';
-        avatar.textContent = (usuario.email || '?').charAt(0);
-        const correo = document.createElement('span');
-        correo.className = 'hidden max-w-[10rem] truncate sm:inline';
-        correo.textContent = usuario.email || 'Mi cuenta';
-        btn.append(avatar, correo);
-      } else {
-        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg><span>Entrar</span>';
-      }
-      const cerrado = leer(CLAVE_AVISO, false);
-      const mostrarAviso = NUBE_CONFIGURADA && !usuario && !cerrado;
+      $('gear-dot').classList.toggle('hidden', !usuario);
+      const mostrarAviso = NUBE_CONFIGURADA && !usuario && !leer(CLAVE_AVISO, false);
       $('aviso-nube').classList.toggle('hidden', !mostrarAviso);
       $('aviso-nube').classList.toggle('flex', mostrarAviso);
     }
 
     /* =====================================================================
-       Ventana de cuenta
+       Ajustes y cuenta
        ===================================================================== */
     let modo = 'entrar'; // 'entrar' | 'crear'
 
@@ -594,7 +1167,7 @@
       const el = $('auth-mensaje');
       el.textContent = texto;
       el.className = 'text-sm ' + (texto ? '' : 'hidden ') +
-        (tipo === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500');
+        (tipo === 'ok' ? 'text-emerald-500' : 'text-rose-500');
     }
 
     function pintarModal() {
@@ -606,41 +1179,40 @@
       Object.keys(vistas).forEach((v) => $('vista-' + v).classList.toggle('hidden', !vistas[v]));
 
       const crear = modo === 'crear';
-      $('modal-titulo').textContent = vistas.sesion ? 'Tu cuenta' : (crear ? 'Crear cuenta' : 'Iniciar sesión');
+      $('cuenta-titulo').textContent = vistas.sesion ? 'Tu cuenta' : (vistas.form ? (crear ? 'Crear cuenta' : 'Iniciar sesión') : 'Cuenta');
       $('form-descripcion').textContent = crear
         ? 'Crea una cuenta para guardar tus tareas en la nube. Las que tengas en este dispositivo se subirán a ella.'
         : 'Entra para recuperar tus tareas en cualquier dispositivo.';
       $('auth-enviar').textContent = crear ? 'Crear cuenta' : 'Iniciar sesión';
       $('auth-cambiar').textContent = crear ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Créala';
       $('auth-pass').autocomplete = crear ? 'new-password' : 'current-password';
-      ponerVisibilidadPass(false); // la contraseña siempre empieza oculta
       $('sesion-email').textContent = usuario ? (usuario.email || '') : '';
+      ponerVisibilidadPass(false); // la contraseña siempre empieza oculta
       mostrarMensaje('');
     }
 
-    function abrirModal() {
+    function abrirAjustes(enfocarCuenta) {
+      cerrarNotif();
+      menuId = null;
       pintarModal();
-      const m = $('modal-cuenta');
+      const m = $('modal-ajustes');
       m.classList.remove('hidden');
       m.classList.add('flex');
       document.body.classList.add('overflow-hidden');
-      if (NUBE_CONFIGURADA && !usuario) setTimeout(() => $('auth-email').focus(), 50);
+      if (enfocarCuenta && NUBE_CONFIGURADA && !usuario) setTimeout(() => $('auth-email').focus(), 50);
     }
-    function cerrarModal() {
-      const m = $('modal-cuenta');
+    function cerrarAjustes() {
+      const m = $('modal-ajustes');
       m.classList.add('hidden');
       m.classList.remove('flex');
       document.body.classList.remove('overflow-hidden');
     }
 
-    $('btn-cuenta').addEventListener('click', abrirModal);
-    $('aviso-entrar').addEventListener('click', abrirModal);
+    $('btn-ajustes').addEventListener('click', () => abrirAjustes(false));
+    $('aviso-entrar').addEventListener('click', () => abrirAjustes(true));
     $('aviso-cerrar').addEventListener('click', () => { escribir(CLAVE_AVISO, true); pintarCuenta(); });
-    $('modal-cerrar').addEventListener('click', cerrarModal);
-    $('modal-cuenta').addEventListener('click', (e) => { if (e.target === e.currentTarget) cerrarModal(); });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !$('modal-cuenta').classList.contains('hidden')) cerrarModal();
-    });
+    $('modal-cerrar').addEventListener('click', cerrarAjustes);
+    $('modal-ajustes').addEventListener('click', (e) => { if (e.target === e.currentTarget) cerrarAjustes(); });
 
     $('auth-cambiar').addEventListener('click', () => {
       modo = modo === 'crear' ? 'entrar' : 'crear';
@@ -659,6 +1231,7 @@
       'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
       'auth/network-request-failed': 'Sin conexión. Comprueba tu internet.',
       'auth/operation-not-allowed': 'El acceso con correo no está activado en Firebase (Authentication → Método de acceso).',
+      'auth/configuration-not-found': 'Authentication no está activado en tu proyecto de Firebase (Authentication → Comenzar).',
       'app/sin-nube': 'No se pudo conectar con el servicio de cuentas. Comprueba tu conexión.'
     };
     function mensajeError(err) {
@@ -692,7 +1265,7 @@
         if (modo === 'crear') await nube.createUserWithEmailAndPassword(nube.auth, email, pass);
         else await nube.signInWithEmailAndPassword(nube.auth, email, pass);
         $('auth-pass').value = '';
-        cerrarModal();
+        cerrarAjustes();
       } catch (err) {
         mostrarMensaje(mensajeError(err));
       } finally {
@@ -719,7 +1292,7 @@
     $('btn-salir').addEventListener('click', async () => {
       try {
         if (nube) await nube.signOut(nube.auth);
-        cerrarModal();
+        cerrarAjustes();
       } catch (err) {
         mostrarToast(mensajeError(err));
       }
@@ -776,6 +1349,7 @@
       clearTimeout(temporizadorGuardado);
       temporizadorGuardado = null;
       editandoId = null;
+      menuId = null;
 
       // --- Sesión cerrada: volver a las tareas locales de este dispositivo ---
       if (!user) {
@@ -844,8 +1418,15 @@
     }
 
     /* =====================================================================
-       Eventos de la lista
+       Eventos de la página
        ===================================================================== */
+    // Punto de color de la prioridad en el formulario
+    function pintarPuntoPrioridad() {
+      $('dot-prioridad').style.background = COLOR_PRIORIDAD[selectPrioridad.value] || COLOR_PRIORIDAD.media;
+    }
+    selectPrioridad.addEventListener('change', pintarPuntoPrioridad);
+    pintarPuntoPrioridad();
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const titulo = inputTitulo.value.trim();
@@ -855,11 +1436,15 @@
         return;
       }
       errorForm.classList.add('hidden');
-      tareas.unshift({ id: uid(), titulo, prioridad: selectPrioridad.value, hecha: false });
+      const fecha = fechaValida(inputFecha.value) ? inputFecha.value : null;
+      tareas.unshift({ id: uid(), titulo, prioridad: selectPrioridad.value, hecha: false, fecha });
       inputTitulo.value = '';
+      inputFecha.value = '';
+      selectPrioridad.value = 'media';
+      pintarPuntoPrioridad();
+      if (fecha) mostrarToast('Tarea añadida para el ' + fechaLarga(fecha) + '.');
       actualizar();
     });
-
     inputTitulo.addEventListener('input', () => errorForm.classList.add('hidden'));
 
     $('filtros').addEventListener('click', (e) => {
@@ -874,13 +1459,33 @@
       render();
     });
 
-    // Confirmación en dos toques (confirm() no es fiable en móviles)
+    // Calendario
+    function cambiarMes(delta) {
+      const d = new Date(vista.y, vista.m + delta, 1);
+      vista = { y: d.getFullYear(), m: d.getMonth() };
+      renderCalendario();
+    }
+    $('cal-prev').addEventListener('click', () => cambiarMes(-1));
+    $('cal-next').addEventListener('click', () => cambiarMes(1));
+    $('cal-titulo').addEventListener('click', () => {
+      const h = new Date();
+      vista = { y: h.getFullYear(), m: h.getMonth() };
+      diaSel = hoyISO();
+      render();
+    });
+    $('hoy-anadir').addEventListener('click', () => {
+      inputFecha.value = diaSel;
+      inputTitulo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      inputTitulo.focus({ preventScroll: true });
+    });
+
+    // Borrar completadas (confirmación en dos toques; confirm() no es fiable en móviles)
     const btnLimpiar = $('btn-limpiar');
     let limpiarTimer = null;
     function restablecerLimpiar() {
       clearTimeout(limpiarTimer);
       btnLimpiar.dataset.confirmar = '';
-      btnLimpiar.textContent = 'Borrar completadas';
+      renderStats();
     }
     btnLimpiar.addEventListener('click', () => {
       if (!tareas.some((t) => t.hecha)) return;
@@ -890,9 +1495,25 @@
         limpiarTimer = setTimeout(restablecerLimpiar, 3000);
         return;
       }
-      restablecerLimpiar();
+      clearTimeout(limpiarTimer);
+      btnLimpiar.dataset.confirmar = '';
+      const antes = tareas.length;
       tareas = tareas.filter((t) => !t.hecha);
+      mostrarToast((antes - tareas.length) + (antes - tareas.length === 1 ? ' tarea borrada.' : ' tareas borradas.'));
       actualizar();
+    });
+
+    // Cerrar menús al tocar fuera / con Escape
+    document.addEventListener('click', (e) => {
+      if (menuId && !e.target.closest('[data-menu]')) { menuId = null; render(); }
+      if (!$('panel-notif').classList.contains('hidden') &&
+          !e.target.closest('#panel-notif') && !e.target.closest('#btn-notif')) cerrarNotif();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!$('modal-ajustes').classList.contains('hidden')) { cerrarAjustes(); return; }
+      if (!$('panel-notif').classList.contains('hidden')) { cerrarNotif(); return; }
+      if (menuId) { menuId = null; render(); }
     });
 
     /* ---------- Arranque ---------- */
